@@ -645,7 +645,7 @@ const App = () => {
               </div>
 
               <div style={{ marginTop: '2rem', textAlign: 'center', fontSize: '14px', color: '#FFFFFF' }}>
-                Version 1.0 Build by Victor Bogatyrev for my daughter Mira
+                Version 2.0 Build by Victor Bogatyrev for my daughter Mira
               </div>
             </div>
           </div>
