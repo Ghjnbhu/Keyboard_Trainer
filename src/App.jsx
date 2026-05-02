@@ -52,6 +52,23 @@ const App = () => {
     }
   }, [level]);
 
+  // Symbol pronunciation mapping (consistent across browsers)
+  const symbolToWord = useMemo(() => ({
+    '~': 'tilde',
+    '!': 'exclamation',
+    '@': 'at sign',
+    '#': 'hash',
+    '$': 'dollar',
+    '%': 'percent',
+    '^': 'caret',
+    '&': 'ampersand',
+    '*': 'asterisk',
+    '(': 'left parenthesis',
+    ')': 'right parenthesis',
+    '_': 'underscore',
+    '+': 'plus'
+  }), []);
+
   const synth = typeof window !== 'undefined' && window.speechSynthesis ? window.speechSynthesis : null;
   const femaleVoiceRef = useRef(null);
   const maleVoiceRef = useRef(null);
@@ -273,13 +290,20 @@ const App = () => {
     }
   }, [synth, useFallback, speechSupported, isEdge]);
 
+  // Convert character to spoken text: digits become words, symbols become mapped words
   const getSpokenText = useCallback((char) => {
+    // Digits 0-9
     if (char >= '0' && char <= '9') {
       const digitWords = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
       return digitWords[parseInt(char, 10)];
     }
+    // Special symbols
+    if (symbolToWord[char]) {
+      return symbolToWord[char];
+    }
+    // Default: the character itself (letters)
     return char;
-  }, []);
+  }, [symbolToWord]);
 
   const speakLetter = useCallback((char) => {
     if (!speechSupported) return;
@@ -309,7 +333,7 @@ const App = () => {
   const handleLevelChange = useCallback((direction) => {
     setLevel(prev => {
       const newLevel = direction === 'next' ? prev + 1 : prev - 1;
-      return Math.max(1, Math.min(4, newLevel));  // max level = 4
+      return Math.max(1, Math.min(4, newLevel));
     });
   }, []);
 
