@@ -1,7 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-// Level 1 alphabet 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-// Level 2 + digites '0123456789'
-// Level 3 + special symbols '~!@#$%^&*()_+'
 
 const App = () => {
   // Game settings
@@ -37,7 +34,7 @@ const App = () => {
   const isSpawningRef = useRef(false);
   const timeOverRef = useRef(false);
   
-  // Keys depend on level (1: letters, 2: letters+digits, 3: letters+digits+symbols)
+  // Keys depend on level (1: letters, 2: letters+digits, 3: letters+digits+symbols, 4: only symbols)
   const keys = useMemo(() => {
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
     if (level === 1) {
@@ -45,10 +42,13 @@ const App = () => {
     } else if (level === 2) {
       const digits = '0123456789'.split('');
       return [...letters, ...digits];
-    } else { // level === 3
+    } else if (level === 3) {
       const digits = '0123456789'.split('');
       const symbols = '~!@#$%^&*()_+'.split('');
       return [...letters, ...digits, ...symbols];
+    } else { // level === 4
+      const symbols = '~!@#$%^&*()_+'.split('');
+      return symbols;
     }
   }, [level]);
 
@@ -309,7 +309,7 @@ const App = () => {
   const handleLevelChange = useCallback((direction) => {
     setLevel(prev => {
       const newLevel = direction === 'next' ? prev + 1 : prev - 1;
-      return Math.max(1, Math.min(3, newLevel));  // max level set to 3
+      return Math.max(1, Math.min(4, newLevel));  // max level = 4
     });
   }, []);
 
@@ -436,8 +436,7 @@ const App = () => {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!isPlaying || !currentKey) return;
-      // Ignore modifier keys and any key that is not a single character
-      if (e.key.length > 1) return; // e.g., 'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Enter', etc.
+      if (e.key.length > 1) return; // ignore modifier keys and non-printable keys
       const pressedKey = e.key.toUpperCase();
       if (pressedKey === currentKey.key) {
         setScore(prev => prev + 1);
