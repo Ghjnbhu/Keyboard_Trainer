@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 
 const App = () => {
   // Game settings
-  const [speed, setSpeed] = useState(1);
+  const [speed, setSpeed] = useState(3);
   const [duration, setDuration] = useState(600);
   const [level, setLevel] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -31,11 +31,17 @@ const App = () => {
   const isGameActiveRef = useRef(false);
   const isSpawningRef = useRef(false);
   const timeOverRef = useRef(false);
+  
+  // Keys depend on level
   const keys = useMemo(() => {
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-    const digits = '0123456789'.split('');
-    return [...letters, ...digits];
-  }, []);
+    if (level === 1) {
+      return letters;
+    } else {
+      const digits = '0123456789'.split('');
+      return [...letters, ...digits];
+    }
+  }, [level]);
 
   const synth = typeof window !== 'undefined' && window.speechSynthesis ? window.speechSynthesis : null;
   const femaleVoiceRef = useRef(null);
@@ -153,6 +159,7 @@ const App = () => {
         setHasFemaleVoice(!!femaleVoiceRef.current);
         setHasMaleVoice(!!maleVoiceRef.current);
 
+        // If no male voice found, use any non-female voice as fallback
         if (!maleVoiceRef.current && voices.length > 0) {
           console.log('⚠️ No male voice found, using first available voice as fallback');
           maleVoiceRef.current = voices.find(v => !femaleList.includes(v)) || voices[0];
@@ -164,6 +171,10 @@ const App = () => {
             setCurrentVoiceName(femaleVoiceRef.current.name);
           } else if (voiceGender === 'male' && maleVoiceRef.current) {
             setCurrentVoiceName(maleVoiceRef.current.name);
+          } else if (voiceGender === 'female' && !femaleVoiceRef.current) {
+            setCurrentVoiceName('Female voice unavailable');
+          } else if (voiceGender === 'male' && !maleVoiceRef.current) {
+            setCurrentVoiceName('Male voice unavailable');
           }
         };
         updateCurrentVoiceName();
@@ -204,28 +215,44 @@ const App = () => {
     try {
       if (synth.speaking) synth.cancel();
       const utterance = new SpeechSynthesisUtterance(word);
+      
       if (useFallback) {
         utterance.pitch = gender === 'female' ? 1.1 : 0.9;
         utterance.rate = 0.9;
         utterance.volume = 1;
         utterance.lang = 'en-GB';
         synth.speak(utterance);
+        console.log(`🔊 Fallback TTS: "${word}" (${gender})`);
         return;
       }
+      
+      // Select appropriate voice
+      let selectedVoice = null;
       if (gender === 'female' && femaleVoiceRef.current) {
-        utterance.voice = femaleVoiceRef.current;
+        selectedVoice = femaleVoiceRef.current;
         utterance.pitch = 1.1;
+        console.log(`🔊 Using female voice: ${selectedVoice.name}`);
       } else if (gender === 'male' && maleVoiceRef.current) {
-        utterance.voice = maleVoiceRef.current;
+        selectedVoice = maleVoiceRef.current;
         utterance.pitch = 0.9;
+        console.log(`🔊 Using male voice: ${selectedVoice.name}`);
       } else {
+        // Fallback: no specific voice found
+        utterance.pitch = gender === 'female' ? 1.1 : 0.9;
         utterance.rate = 0.9;
         utterance.volume = 1;
         utterance.lang = 'en-GB';
+        synth.speak(utterance);
+        console.log(`🔊 No specific voice, using default with pitch ${utterance.pitch}`);
+        return;
       }
+      
+      utterance.voice = selectedVoice;
       utterance.rate = 0.9;
       utterance.volume = 1;
       utterance.lang = 'en-GB';
+      
+      // For some browsers, the voice might not be ready; try to speak anyway
       synth.speak(utterance);
     } catch (error) {
       console.error('Speech error:', error);
@@ -250,8 +277,9 @@ const App = () => {
     setVoiceGender(gender);
     if (voicesLoaded && speechSupported) {
       setTimeout(() => {
-        speakWord(gender === 'female' ? 'Female' : 'Male', gender);
-      }, 50);
+        // Speak a test word to confirm the voice works
+        speakWord(gender === 'female' ? 'Female voice selected' : 'Male voice selected', gender);
+      }, 100);
     }
   }, [speakWord, voicesLoaded, speechSupported]);
 
@@ -268,7 +296,7 @@ const App = () => {
   const handleLevelChange = useCallback((direction) => {
     setLevel(prev => {
       const newLevel = direction === 'next' ? prev + 1 : prev - 1;
-      return Math.max(1, Math.min(10, newLevel));
+      return Math.max(1, Math.min(2, newLevel));
     });
   }, []);
 
