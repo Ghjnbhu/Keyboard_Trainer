@@ -33,7 +33,8 @@ const App = () => {
   const isGameActiveRef = useRef(false);
   const isSpawningRef = useRef(false);
   const timeOverRef = useRef(false);
-  
+  const prevKeyRef = useRef(null); // store last spawned character to avoid repetition
+
   // Keys depend on level (1: letters, 2: letters+digits, 3: letters+digits+symbols, 4: only symbols)
   const keys = useMemo(() => {
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -55,16 +56,16 @@ const App = () => {
   // Symbol pronunciation mapping (consistent across browsers)
   const symbolToWord = useMemo(() => ({
     '~': 'tilde',
-    '!': 'exclamation',
-    '@': 'at sign',
+    '!': 'exclamation mark',
+    '@': 'at',
     '#': 'hash',
     '$': 'dollar',
     '%': 'percent',
     '^': 'caret',
-    '&': 'ampersand',
+    '&': 'and',
     '*': 'asterisk',
-    '(': 'left parenthesis',
-    ')': 'right parenthesis',
+    '(': 'open parenthesis',
+    ')': 'close parenthesis',
     '_': 'underscore',
     '+': 'plus'
   }), []);
@@ -292,16 +293,13 @@ const App = () => {
 
   // Convert character to spoken text: digits become words, symbols become mapped words
   const getSpokenText = useCallback((char) => {
-    // Digits 0-9
     if (char >= '0' && char <= '9') {
       const digitWords = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
       return digitWords[parseInt(char, 10)];
     }
-    // Special symbols
     if (symbolToWord[char]) {
       return symbolToWord[char];
     }
-    // Default: the character itself (letters)
     return char;
   }, [symbolToWord]);
 
@@ -361,7 +359,18 @@ const App = () => {
     if (isSpawningRef.current || timeOverRef.current || !isGameActiveRef.current) return;
     isSpawningRef.current = true;
     setIsSpawning(true);
-    const randomKey = keys[Math.floor(Math.random() * keys.length)];
+    
+    // Pick a random key different from the previous one (if possible)
+    let randomKey;
+    if (keys.length === 1) {
+      randomKey = keys[0];
+    } else {
+      do {
+        randomKey = keys[Math.floor(Math.random() * keys.length)];
+      } while (randomKey === prevKeyRef.current);
+    }
+    prevKeyRef.current = randomKey;
+    
     if (speechSupported) speakLetter(randomKey);
     if (spawnTimeoutRef.current) clearTimeout(spawnTimeoutRef.current);
     spawnTimeoutRef.current = setTimeout(() => {
@@ -393,6 +402,7 @@ const App = () => {
     setMisses(0);
     setWrongPresses(0);
     setCurrentKey(null);
+    prevKeyRef.current = null; // reset previous key
     spawnLetter();
   };
 
@@ -456,11 +466,11 @@ const App = () => {
     return () => cancelAnimationFrame(animationRef.current);
   }, [isPlaying, currentKey, spawnLetter, endGame]);
 
-  // Key press handler - ignore modifier keys (Shift, Ctrl, Alt, Meta)
+  // Key press handler - ignore modifier keys
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!isPlaying || !currentKey) return;
-      if (e.key.length > 1) return; // ignore modifier keys and non-printable keys
+      if (e.key.length > 1) return;
       const pressedKey = e.key.toUpperCase();
       if (pressedKey === currentKey.key) {
         setScore(prev => prev + 1);
