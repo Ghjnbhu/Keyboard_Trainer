@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+// Level 1 alphabet 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+// Level 2 + digites '0123456789'
+// Level 3 + special symbols '~!@#$%^&*()_+'
 
 const App = () => {
   // Game settings
@@ -21,6 +24,8 @@ const App = () => {
   const [voicesLoaded, setVoicesLoaded] = useState(false);
   const [isSpawning, setIsSpawning] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
+  const [maleFallback, setMaleFallback] = useState(false);
+  const isEdge = useMemo(() => typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('edg'), []);
 
   // Game elements
   const [currentKey, setCurrentKey] = useState(null);
@@ -32,14 +37,18 @@ const App = () => {
   const isSpawningRef = useRef(false);
   const timeOverRef = useRef(false);
   
-  // Keys depend on level
+  // Keys depend on level (1: letters, 2: letters+digits, 3: letters+digits+symbols)
   const keys = useMemo(() => {
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
     if (level === 1) {
       return letters;
-    } else {
+    } else if (level === 2) {
       const digits = '0123456789'.split('');
       return [...letters, ...digits];
+    } else { // level === 3
+      const digits = '0123456789'.split('');
+      const symbols = '~!@#$%^&*()_+'.split('');
+      return [...letters, ...digits, ...symbols];
     }
   }, [level]);
 
@@ -159,7 +168,6 @@ const App = () => {
         setHasFemaleVoice(!!femaleVoiceRef.current);
         setHasMaleVoice(!!maleVoiceRef.current);
 
-        // If no male voice found, use any non-female voice as fallback
         if (!maleVoiceRef.current && voices.length > 0) {
           console.log('⚠️ No male voice found, using first available voice as fallback');
           maleVoiceRef.current = voices.find(v => !femaleList.includes(v)) || voices[0];
@@ -216,6 +224,16 @@ const App = () => {
       if (synth.speaking) synth.cancel();
       const utterance = new SpeechSynthesisUtterance(word);
       
+      if (isEdge && gender === 'male' && !useFallback) {
+        utterance.pitch = 0.9;
+        utterance.rate = 0.9;
+        utterance.volume = 1;
+        utterance.lang = 'en-GB';
+        synth.speak(utterance);
+        console.log(`🔊 Edge fallback TTS for male: "${word}"`);
+        return;
+      }
+      
       if (useFallback) {
         utterance.pitch = gender === 'female' ? 1.1 : 0.9;
         utterance.rate = 0.9;
@@ -226,7 +244,6 @@ const App = () => {
         return;
       }
       
-      // Select appropriate voice
       let selectedVoice = null;
       if (gender === 'female' && femaleVoiceRef.current) {
         selectedVoice = femaleVoiceRef.current;
@@ -237,7 +254,6 @@ const App = () => {
         utterance.pitch = 0.9;
         console.log(`🔊 Using male voice: ${selectedVoice.name}`);
       } else {
-        // Fallback: no specific voice found
         utterance.pitch = gender === 'female' ? 1.1 : 0.9;
         utterance.rate = 0.9;
         utterance.volume = 1;
@@ -251,13 +267,11 @@ const App = () => {
       utterance.rate = 0.9;
       utterance.volume = 1;
       utterance.lang = 'en-GB';
-      
-      // For some browsers, the voice might not be ready; try to speak anyway
       synth.speak(utterance);
     } catch (error) {
       console.error('Speech error:', error);
     }
-  }, [synth, useFallback, speechSupported]);
+  }, [synth, useFallback, speechSupported, isEdge]);
 
   const getSpokenText = useCallback((char) => {
     if (char >= '0' && char <= '9') {
@@ -277,8 +291,7 @@ const App = () => {
     setVoiceGender(gender);
     if (voicesLoaded && speechSupported) {
       setTimeout(() => {
-        // Speak a test word to confirm the voice works
-        speakWord(gender === 'female' ? 'Female voice selected' : 'Male voice selected', gender);
+        speakWord(gender === 'female' ? 'Female voice' : 'Male voice', gender);
       }, 100);
     }
   }, [speakWord, voicesLoaded, speechSupported]);
@@ -296,7 +309,7 @@ const App = () => {
   const handleLevelChange = useCallback((direction) => {
     setLevel(prev => {
       const newLevel = direction === 'next' ? prev + 1 : prev - 1;
-      return Math.max(1, Math.min(2, newLevel));
+      return Math.max(1, Math.min(3, newLevel));  // max level set to 3
     });
   }, []);
 
@@ -372,7 +385,6 @@ const App = () => {
     if (synth && synth.speaking) synth.cancel();
   }, [synth]);
 
-  // Timer effect
   useEffect(() => {
     if (!isPlaying) return;
     const timer = setInterval(() => {
@@ -389,7 +401,6 @@ const App = () => {
     return () => clearInterval(timer);
   }, [isPlaying, currentKey, endGame]);
 
-  // Animation loop
   useEffect(() => {
     if (!isPlaying) return;
     const canvas = canvasRef.current;
@@ -421,10 +432,12 @@ const App = () => {
     return () => cancelAnimationFrame(animationRef.current);
   }, [isPlaying, currentKey, spawnLetter, endGame]);
 
-  // Key press handler
+  // Key press handler - ignore modifier keys (Shift, Ctrl, Alt, Meta)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!isPlaying || !currentKey) return;
+      // Ignore modifier keys and any key that is not a single character
+      if (e.key.length > 1) return; // e.g., 'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Enter', etc.
       const pressedKey = e.key.toUpperCase();
       if (pressedKey === currentKey.key) {
         setScore(prev => prev + 1);
